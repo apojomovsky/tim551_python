@@ -20,15 +20,18 @@
 #
 
 import socket
+import argparse
 import sys
+
 ADDR = '169.254.73.213'
 PORT = 2112
 
 
 class tim551:
-    def __init__(self, ip, port):
+    def __init__(self, ip, port, output):
         self.host = ip
         self.port = port
+        self.output = output
 
     def connect(self):
         try:
@@ -47,37 +50,52 @@ class tim551:
         print 'Socket Connected to ' + self.host + ' on ip ' + remote_ip
 
     def startReceivingData(self):
-        message = "\x02sEN LMDscandata 1\x03\0"
         try:
-            self.s.sendall(message)
+            self.s.sendall("\x02sEN LMDscandata 1\x03\0")
         except socket.error:
             print 'Send failed'
             sys.exit()
-        reply = self.s.recv(4096)
-        print reply
-        if reply is "sEA LMDscandata 1":
-            print "EL RIO DE LA CACAAAAA"
-        data = self.s.recv(2048)
-        print data
+        reply = self.s.recv(2048)
+        if "\x02sEA LMDscandata 1\x03" in reply:
+            print "Started receiving data from sensor"
 
     def stopReceivingData(self):
-        message = "\x02sEN LMDscandata 0\x03\0"
         try:
-            self.s.sendall(message)
+            self.s.sendall("\x02sEN LMDscandata 0\x03\0")
         except socket.error:
             print 'Send failed'
             sys.exit()
-        print 'Stopped receiving data from sensor'
-        reply = self.s.recv(4096)
-        print reply
+        reply = self.s.recv(2048)
+        if "\x02sEA LMDscandata 0\x03" in reply:
+            print "Stopped receiving data from sensor"
+
+    def readData(self):
+        data = self.s.recv(2048)
+        print data
 
     def close(self):
         self.s.close()
 
 
 if __name__ == '__main__':
-    lidar = tim551(ADDR, PORT)
+    parser = argparse.ArgumentParser(description='Friendly driver for SICK TiM551 sensor')
+    parser.add_argument('-i', '--ip-addr', action='store',
+                        dest='ip_address', default=ADDR,
+                        help="IP address of the sensor")
+    parser.add_argument('-p', '--port', action='store', type=int,
+                        dest='port', default=PORT,
+                        help="Port number of the sensor")
+    parser.add_argument('-o', '--output', action='store',
+                        dest='output', default='console',
+                        help="Outputs to console or a file")
+    parser.add_argument('-d', '--debug', action='store',
+                        dest='debug', default=0,
+                        help="Enables debug logs")
+    args = parser.parse_args()
+    lidar = tim551(args.ip_address, args.port, args.output)
     lidar.connect()
     lidar.startReceivingData()
+    for i in range(5):
+        lidar.readData()
     lidar.stopReceivingData()
     lidar.close()
