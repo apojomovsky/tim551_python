@@ -22,6 +22,7 @@
 import socket
 import argparse
 import sys
+import re
 
 ADDR = '169.254.73.213'
 PORT = 2112
@@ -32,6 +33,8 @@ class tim551:
         self.host = ip
         self.port = port
         self.output = output
+        self.processed_data = []
+        self.measures = []
 
     def connect(self):
         try:
@@ -70,10 +73,14 @@ class tim551:
             print "Stopped receiving data from sensor"
 
     def readData(self):
-        data = self.s.recv(2048)
-        print data
+        self.data = self.s.recv(2048)
 
-    def close(self):
+    def readDistances(self):
+        self.processed_data = re.compile('\w+').findall(self.data)
+        self.measures = [int(x, 16) for x in self.processed_data[26:297]]
+        return self.measures
+
+    def __del__(self):
         self.s.close()
 
 
@@ -95,7 +102,7 @@ if __name__ == '__main__':
     lidar = tim551(args.ip_address, args.port, args.output)
     lidar.connect()
     lidar.startReceivingData()
-    for i in range(5):
+    for i in range(1):
         lidar.readData()
+        lidar.readDistances()
     lidar.stopReceivingData()
-    lidar.close()
