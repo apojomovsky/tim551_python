@@ -27,12 +27,10 @@ import re
 ADDR = '169.254.73.213'
 PORT = 2112
 
-
 class tim551:
-    def __init__(self, ip, port, output):
+    def __init__(self, ip, port):
         self.host = ip
         self.port = port
-        self.output = output
         self.processed_data = []
         self.measures = []
 
@@ -92,17 +90,14 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', action='store', type=int,
                         dest='port', default=PORT,
                         help="Port number of the sensor")
-    parser.add_argument('-o', '--output', action='store',
-                        dest='output', default='console',
-                        help="Outputs to console or a file")
     parser.add_argument('-d', '--debug', action='store',
                         dest='debug', default=0,
                         help="Enables debug logs")
     args = parser.parse_args()
-    lidar = tim551(args.ip_address, args.port, args.output)
+    lidar = tim551(args.ip_address, args.port)
     lidar.connect()
     lidar.startReceivingData()
     for i in range(1):
         lidar.readData()
-        lidar.readDistances()
+        print lidar.readDistances()
     lidar.stopReceivingData()
