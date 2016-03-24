@@ -27,12 +27,15 @@ import re
 ADDR = '169.254.73.213'
 PORT = 2112
 
-class tim551:
-    def __init__(self, ip, port):
+class tim551():
+    def __init__(self, ip, port, rangel = -45, rangeh = 225):
         self.host = ip
         self.port = port
         self.processed_data = []
         self.measures = []
+        self.rangel = rangel
+        self.rangeh = rangeh
+        self._isReceiving = False
 
     def connect(self):
         try:
@@ -51,31 +54,51 @@ class tim551:
         print 'Socket Connected to ' + self.host + ' on ip ' + remote_ip
 
     def startReceivingData(self):
-        try:
-            self.s.sendall("\x02sEN LMDscandata 1\x03\0")
-        except socket.error:
-            print 'Send failed'
-            sys.exit()
-        reply = self.s.recv(2048)
-        if "\x02sEA LMDscandata 1\x03" in reply:
-            print "Started receiving data from sensor"
+        if not self._isReceiving:
+            self._isReceiving = True
+            try:
+                self.s.sendall("\x02sEN LMDscandata 1\x03\0")
+            except socket.error:
+                print 'Send failed'
+                sys.exit()
+            reply = self.s.recv(2048)
+            #if "\x02sEA LMDscandata 1\x03" in reply:
+            #    print "Started receiving data from sensor"
+        else:
+            print "Already receiving data from sensor"
 
     def stopReceivingData(self):
-        try:
-            self.s.sendall("\x02sEN LMDscandata 0\x03\0")
-        except socket.error:
-            print 'Send failed'
-            sys.exit()
-        reply = self.s.recv(2048)
-        if "\x02sEA LMDscandata 0\x03" in reply:
-            print "Stopped receiving data from sensor"
+        if self._isReceiving:
+            try:
+                self.s.sendall("\x02sEN LMDscandata 0\x03\0")
+            except socket.error:
+                print 'Send failed'
+                sys.exit()
+            reply = self.s.recv(2048)
+            #if "\x02sEA LMDscandata 0\x03" in reply:
+            #    print "Stopped receiving data from sensor"
+            self._isReceiving = False
+
+    def singleDataRead(self):
+        if not self._isReceiving:
+            self._isReceiving = True
+            try:
+                self.s.sendall("\x02sRN LMDscandata\x03\0")
+            except socket.error:
+                print 'Send failed'
+            self.readData()
+            self._isReceiving = False
+            return self.readDistances()
 
     def readData(self):
         self.data = self.s.recv(2048)
 
     def readDistances(self):
-        self.processed_data = re.compile('\w+').findall(self.data)
-        self.measures = [int(x, 16) for x in self.processed_data[26:297]]
+        try:
+            self.processed_data = re.compile('\w+').findall(self.data)
+            self.measures = [int(x, 16) for x in self.processed_data[26+45+self.rangel:297-225+self.rangeh]]
+        except:
+            pass
         return self.measures
 
     def __del__(self):
@@ -93,11 +116,18 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store',
                         dest='debug', default=0,
                         help="Enables debug logs")
+    parser.add_argument('-rl', '--range-low', action='store', type=int,
+                        dest='rangel', default=-45,
+                        help="Range Low")
+    parser.add_argument('-rh', '--range-high', action='store', type=int,
+                        dest='rangeh', default=225,
+                        help="Range High")
     args = parser.parse_args()
-    lidar = tim551(args.ip_address, args.port)
+    lidar = tim551(args.ip_address, args.port, args.rangel, args.rangeh)
     lidar.connect()
+    #print lidar.singleDataRead()
     lidar.startReceivingData()
     for i in range(1):
         lidar.readData()
         print lidar.readDistances()
-    lidar.stopReceivingData()
+    #lidar.stopReceivingData()
